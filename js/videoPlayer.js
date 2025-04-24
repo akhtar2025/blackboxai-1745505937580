@@ -20,6 +20,15 @@ class VideoPlayer {
         
         this.lastPauseTime = 0;
         this.setupEventListeners();
+        
+        // Load last saved video if available
+        if (window.dbManager) {
+            this.loadLastVideo();
+        } else {
+            document.addEventListener('dbManagerReady', () => {
+                this.loadLastVideo();
+            });
+        }
     }
 
     setupEventListeners() {
@@ -111,7 +120,7 @@ class VideoPlayer {
         this.slowPlayBtn.classList.toggle('bg-gray-500', this.video.playbackRate === 0.5);
     }
 
-    handleVideoUpload(event) {
+    async handleVideoUpload(event) {
         const file = event.target.files[0];
         if (file) {
             if (!file.type.startsWith('video/')) {
@@ -122,19 +131,41 @@ class VideoPlayer {
             const uploadBtn = event.target.parentElement;
             uploadBtn.classList.add('loading');
 
-            const url = URL.createObjectURL(file);
-            this.video.src = url;
-            this.video.load();
+            try {
+                // Save video to IndexedDB
+                await window.dbManager.saveVideo(file);
+                
+                const url = URL.createObjectURL(file);
+                this.video.src = url;
+                this.video.load();
 
-            this.video.onloadeddata = () => {
-                uploadBtn.classList.remove('loading');
-                this.updatePlayPauseButton();
-            };
+                this.video.onloadeddata = () => {
+                    uploadBtn.classList.remove('loading');
+                    this.updatePlayPauseButton();
+                };
 
-            this.video.onerror = () => {
+                this.video.onerror = () => {
+                    uploadBtn.classList.remove('loading');
+                    alert('Error loading video. Please try another file.');
+                };
+            } catch (error) {
+                console.error('Error saving video:', error);
                 uploadBtn.classList.remove('loading');
-                alert('Error loading video. Please try another file.');
-            };
+                alert('Error saving video for offline use. Please try again.');
+            }
+        }
+    }
+
+    async loadLastVideo() {
+        try {
+            const videoData = await window.dbManager.getLatestVideo();
+            if (videoData && videoData.file) {
+                const url = URL.createObjectURL(videoData.file);
+                this.video.src = url;
+                this.video.load();
+            }
+        } catch (error) {
+            console.error('Error loading last video:', error);
         }
     }
 
