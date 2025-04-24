@@ -2,6 +2,24 @@ class DataHandler {
     constructor() {
         this.processes = [];
         this.setupEventListeners();
+        this.loadSavedProcesses();
+    }
+
+    async loadSavedProcesses() {
+        try {
+            const savedProcesses = await window.dbManager.getProcesses();
+            if (savedProcesses && savedProcesses.length > 0) {
+                this.processes = savedProcesses;
+                this.updateTable();
+                
+                // Update charts with saved data
+                const statusTotals = this.calculateStatusTotals();
+                window.chartManager.updateCurrentCondition(statusTotals);
+                window.chartManager.updateMMChart(this.processes);
+            }
+        } catch (error) {
+            console.error('Error loading saved processes:', error);
+        }
     }
 
     setupEventListeners() {
@@ -15,7 +33,7 @@ class DataHandler {
         document.getElementById('exportExcel').addEventListener('click', () => this.exportToExcel());
     }
 
-    handleProcessSubmit(e) {
+    async handleProcessSubmit(e) {
         e.preventDefault();
         
         const processDetail = document.getElementById('processDetail').value.trim();
@@ -42,6 +60,14 @@ class DataHandler {
             };
 
             this.processes.push(process);
+            
+            // Save to IndexedDB
+            try {
+                await window.dbManager.saveProcesses(this.processes);
+            } catch (error) {
+                console.error('Error saving processes:', error);
+            }
+
             this.updateTable();
             
             // Update current condition in charts
