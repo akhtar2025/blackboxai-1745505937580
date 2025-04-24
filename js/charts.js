@@ -93,7 +93,7 @@ class ChartManager {
             data: {
                 labels: [],
                 datasets: [{
-                    label: 'Process Duration',
+                    label: 'Process Timeline',
                     backgroundColor: '#2196F3',
                     data: [],
                     barPercentage: 0.8,
@@ -108,9 +108,12 @@ class ChartManager {
                         beginAtZero: true,
                         title: {
                             display: true,
-                            text: 'Time (seconds)'
+                            text: 'Timeline (seconds)'
                         },
-                        position: 'top'  // Show time scale on top
+                        position: 'top',  // Show time scale on top
+                        grid: {
+                            color: '#e2e8f0'  // Light gray grid lines
+                        }
                     },
                     y: {
                         title: {
@@ -179,20 +182,80 @@ class ChartManager {
     }
 
     updateMMChart(processes) {
-        this.mmChart.data.labels = processes.map(p => `Process ${p.no}: ${p.detail}`);
-        this.mmChart.data.datasets[0].data = processes.map(p => p.timeDifference);
-        
-        // Update colors based on status
-        this.mmChart.data.datasets[0].backgroundColor = processes.map(p => {
-            switch(p.status) {
-                case 'Value': return '#4CAF50';
-                case 'Semi Value': return '#2196F3';
-                case 'Check': return '#FFC107';
-                case 'Non Value': return '#F44336';
-                default: return '#2196F3';
-            }
+        // Calculate cumulative start times for each process
+        let cumulativeTime = 0;
+        const processData = processes.map(p => {
+            const startTime = cumulativeTime;
+            cumulativeTime += p.timeDifference;
+            return {
+                x: startTime,  // Start position
+                y: `Process ${p.no}: ${p.detail}`,  // Process label
+                duration: p.timeDifference,  // Bar width
+                status: p.status  // For color coding
+            };
         });
-        
+
+        // Update chart configuration
+        this.mmChart.data = {
+            labels: processData.map(p => p.y),
+            datasets: [{
+                label: 'Process Duration',
+                data: processData.map(p => ({
+                    x: p.x,
+                    y: p.y,
+                    duration: p.duration
+                })),
+                backgroundColor: processData.map(p => {
+                    switch(p.status) {
+                        case 'Value': return '#4CAF50';
+                        case 'Semi Value': return '#2196F3';
+                        case 'Check': return '#FFC107';
+                        case 'Non Value': return '#F44336';
+                        default: return '#2196F3';
+                    }
+                }),
+                barPercentage: 0.8,
+                categoryPercentage: 0.9
+            }]
+        };
+
+        // Update chart options
+        this.mmChart.options = {
+            responsive: true,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Time (seconds)'
+                    },
+                    position: 'top'
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Process'
+                    },
+                    reverse: true
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: (context) => {
+                            const data = context.raw;
+                            return [
+                                `Start Time: ${data.x.toFixed(1)}s`,
+                                `Duration: ${data.duration.toFixed(1)}s`,
+                                `End Time: ${(data.x + data.duration).toFixed(1)}s`
+                            ];
+                        }
+                    }
+                }
+            }
+        };
+
         this.mmChart.update();
     }
 
