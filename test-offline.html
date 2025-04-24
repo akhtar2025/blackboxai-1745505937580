@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Offline Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .test-item { margin-bottom: 10px; padding: 10px; border: 1px solid #eee; border-radius: 4px; }
+        .success { color: green; }
+        .error { color: red; }
+        .button-group { margin: 20px 0; }
+        button { 
+            padding: 10px 20px; 
+            margin-right: 10px;
+            background: #4CAF50; 
+            color: white; 
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button.warning { background: #ff9800; }
+        #status { 
+            margin: 10px 0; 
+            padding: 10px; 
+            background: #f0f0f0; 
+            border-radius: 4px;
+        }
+        #networkStatus {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        .online { background: #4CAF50; color: white; }
+        .offline { background: #f44336; color: white; }
+    </style>
+</head>
+<body>
+    <div id="networkStatus">Online</div>
+    <h1>Offline Functionality Test</h1>
+    <div id="status">Initializing...</div>
+    
+    <div class="button-group">
+        <button onclick="runTests()">Run Tests</button>
+        <button class="warning" onclick="toggleOffline()">Toggle Offline Mode</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        const status = document.getElementById('status');
+        const networkStatus = document.getElementById('networkStatus');
+        let isOffline = false;
+
+        function updateNetworkStatus() {
+            networkStatus.textContent = isOffline ? 'Offline' : 'Online';
+            networkStatus.className = isOffline ? 'offline' : 'online';
+        }
+
+        function toggleOffline() {
+            isOffline = !isOffline;
+            updateNetworkStatus();
+            
+            if (isOffline) {
+                status.textContent = 'Application is in offline mode. Try running the tests!';
+            } else {
+                status.textContent = 'Application is back online. Try running the tests!';
+            }
+        }
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            status.textContent = 'Registering Service Worker...';
+            navigator.serviceWorker.register('./sw.js', { scope: './' })
+                .then(registration => {
+                    if (registration.active) {
+                        status.textContent = 'Service Worker active!';
+                    } else if (registration.installing) {
+                        status.textContent = 'Service Worker installing...';
+                        registration.installing.addEventListener('statechange', e => {
+                            if (e.target.state === 'activated') {
+                                status.textContent = 'Service Worker activated!';
+                            }
+                        });
+                    }
+                })
+                .catch(error => {
+                    status.textContent = 'Service Worker registration failed: ' + error;
+                });
+        }
+
+        async function runTests() {
+            const results = document.getElementById('results');
+            results.innerHTML = '';
+            
+            // Test Service Worker
+            const registration = await navigator.serviceWorker.getRegistration();
+            addResult('Service Worker', !!registration && !!registration.active);
+
+            // Test IndexedDB
+            addResult('IndexedDB', !!window.indexedDB);
+
+            // Test Database
+            try {
+                await new Promise((resolve, reject) => {
+                    const request = indexedDB.open('videoAnalysisDB', 1);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject();
+                });
+                addResult('Database Access', true);
+            } catch {
+                addResult('Database Access', false);
+            }
+
+            // Test Cache
+            try {
+                const cache = await caches.open('video-analysis-v2');
+                const keys = await cache.keys();
+                const urls = keys.map(req => req.url.split('/').pop()).join(', ');
+                addResult('Cache', keys.length > 0, 
+                    `${keys.length} items cached${urls ? ': ' + urls : ''}`);
+            } catch {
+                addResult('Cache', false);
+            }
+
+            // Test Network Access
+            try {
+                if (isOffline) {
+                    const cache = await caches.open('video-analysis-v2');
+                    const response = await cache.match('./index.html');
+                    addResult('Offline Access', !!response, 
+                        'Successfully retrieved cached index.html');
+                } else {
+                    const response = await fetch('./index.html');
+                    addResult('Online Access', response.ok, 
+                        'Successfully fetched index.html from server');
+                }
+            } catch (error) {
+                addResult(isOffline ? 'Offline Access' : 'Online Access', 
+                    false, error.message);
+            }
+        }
+
+        function addResult(name, success, details = '') {
+            const div = document.createElement('div');
+            div.className = 'test-item';
+            div.innerHTML = `
+                <strong>${name}:</strong> 
+                <span class="${success ? 'success' : 'error'}">
+                    ${success ? '✓ Pass' : '✗ Fail'}
+                </span>
+                ${details ? `<br><small>${details}</small>` : ''}
+            `;
+            document.getElementById('results').appendChild(div);
+        }
+
+        // Initial network status
+        updateNetworkStatus();
+    </script>
+</body>
+</html>
