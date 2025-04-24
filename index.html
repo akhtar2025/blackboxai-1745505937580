@@ -9,8 +9,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="styles/main.css">
+    <meta name="theme-color" content="#ffffff">
 </head>
 <body class="bg-gray-100 font-inter">
+    <!-- Connection Status -->
+    <div class="fixed top-0 right-0 m-4 z-50">
+        <span id="connectionStatus" class="bg-green-500 text-white px-3 py-1 rounded-full text-sm">Online</span>
+    </div>
+
     <div class="container mx-auto px-4 py-8">
         <!-- Video Section -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -189,6 +195,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="js/db.js"></script>
+    <script src="js/offlineManager.js"></script>
     <script src="js/videoPlayer.js"></script>
     <script src="js/dataHandler.js"></script>
     <script src="js/charts.js"></script>
